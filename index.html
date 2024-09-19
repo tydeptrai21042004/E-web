@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ứng dụng chú thích linh kiện điện tử</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="manual">
+            <h2>Bảng tóm tắt các phím tắt</h2>
+            <table class="manual-table">
+                <thead>
+                    <tr>
+                        <th>Phím tắt</th>
+                        <th>Chức năng</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>a</td>
+                        <td>Tạo một mũi tên tại vị trí chuột</td>
+                    </tr>
+                    <tr>
+                        <td>Shift + l</td>
+                        <td>Vẽ đường thẳng</td>
+                    </tr>
+                    <tr>
+                        <td>Shift + c</td>
+                        <td>Vẽ đường tròn</td>
+                    </tr>
+                    <tr>
+                        <td>Shift + a</td>
+                        <td>Vẽ mũi tên</td>
+                    </tr>
+                    <tr>
+                        <td>Shift + r</td>
+                        <td>Vẽ hình chữ nhật</td>
+                    </tr>
+                    <tr>
+                        <td>Shift + s</td>
+                        <td>Vẽ đường bất kì</td>
+                    </tr>
+                    <tr>
+                        <td>B</td>
+                        <td>Đổi màu đường đã vẽ</td>
+                    </tr>
+                    <tr>
+                        <td>T</td>
+                        <td>Đổi màu khoảng bên trong đường đã vẽ</td>
+                    </tr>
+                    <tr>
+                        <td>Backspace</td>
+                        <td>Xóa vật thể (hình vẽ) được chọn</td>
+                    </tr>
+                    <tr>
+                        <td>+</td>
+                        <td>Phóng to</td>
+                    </tr>
+                    <tr>
+                        <td>-</td>
+                        <td>Thu nhỏ</td>
+                    </tr>
+                    <tr>
+                        <td>Shift + e</td>
+                        <td>xóa các hàng không có số thứ tự</td>
+                    </tr>
+                    <tr>
+                        <td>Delete</td>
+                        <td>Xóa hình và các hình đã vẽ</td>
+                    </tr>
+                    <tr>
+                        <td>Ctrl + c</td>
+                        <td>Sao chép</td>
+                    </tr>
+                    <tr>
+                        <td>Ctrl + v</td>
+                        <td>Dán</td>
+                    </tr>
+                    <tr>
+                        <td>Ctrl + z</td>
+                        <td>Khôi phục hành động xóa hình vẽ</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="main-content">
+            <div class="toolbar">
+                <input type="file" id="imageLoader" name="imageLoader" class="file-input"/>
+                <button id="drawLine" class="btn">Vẽ đường thẳng</button>
+                
+                <button id="drawArrow" class="btn">Vẽ mũi tên</button>
+                
+                <button id="deleteAnnotation" class="btn">Xóa</button>
+                <button id="toggleBackgroundButton" class="btn">Dịch chuyển hình</button>
+                <button id="zoomIn" class="btn">Phóng to</button>
+                <button id="zoomOut" class="btn">thu nhỏ</button>
+                <button id="createNewScreen" class="btn">Thêm screen (thêm hình)</button>
+            </div>
+            <div class="frame">
+                <div class="tab-screens-contain"></div>
+                <div class="screens-contain"></div>
+            </div>
+            <div class="toolbar-2">
+                <button id="exportExcel" class="btn">Tải file excel</button>
+            </div>
+            <div class="introduction">
+                <h2>Lưu ý</h2>
+                <p>Hiện tại web này chỉ là phiên bản thử nghiệm, vẫn trong quá trình phát triển và kiểm thử. Một số chú ý cần biết để quá trình làm việc được suôn sẻ.</p>
+                    <p>Cần nhấn nút chọn chế độ trước khi vẽ vào hình và tắt để di chuyển hình.</p>
+                    <p>Không thể di chuyển được khung trống nhấn thu nhỏ xong di chuyển hình rồi nhấn phóng to để thay thế./<p>
+                    <p>Nhấn F5 sẽ xóa toàn bộ quá trình đang xử lý.</p>
+                    <p>Hiện tại thì hình vẽ mũi tên mới tạo ra hàng mới trong bảng.</p>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/4.5.0/fabric.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/0.5.0-beta4/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+    <script src="index.js"></script>
+</body>
+</html>
