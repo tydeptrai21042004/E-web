@@ -383,10 +383,7 @@ document.addEventListener('keydown', function(event) {
         zoomOut();
     } else if (event.shiftKey && event.key === 'e'|| event.shiftKey && event.key === 'E') {
         removeEmptyRows();
-    } //else if (event.key === 'Delete') {
-       // console.log('Delete key pressed. Deleting image and shapes...');
-       // deleteImageAndShapes(); // Call the function
-    //} 
+    } 
     else if ((event.ctrlKey || event.metaKey) && (event.key === 'c' || event.key === 'C')) {
         copy();
     } else if ((event.ctrlKey || event.metaKey) && (event.key === 'v' || event.key === 'V')) {
@@ -1666,6 +1663,12 @@ function addNumberLabel(number, obj) {
 
     const canvas = window.canvas;
 
+    // Function to get scaled font size based on zoom level
+    function getScaledFontSize() {
+        const zoomLevel = canvas.getZoom();
+        return 24 / zoomLevel; // Adjust the base font size (24) as needed
+    }
+
     // Calculate the position relative to the object
     var labelLeft = obj.left;
     var labelTop = obj.top - 20; // Adjust as needed
@@ -1673,8 +1676,8 @@ function addNumberLabel(number, obj) {
     var text = new fabric.Text(String(number), {
         left: labelLeft,
         top: labelTop,
-        fontSize: 24, // Make the label bigger
-        fill: 'red',
+        fontSize: getScaledFontSize(), // Set scaled font size
+        fill: 'black', // Set text color to black
         selectable: false,
         evented: false
     });
@@ -1686,18 +1689,19 @@ function addNumberLabel(number, obj) {
     canvas.bringToFront(obj);
     canvas.renderAll();
 
-    // Function to update the position of the label text
+    // Function to update the position and font size of the label text
     function updateNumberLabelPosition(obj) {
         if (!obj || !obj.text) return;
 
         // Calculate the new position of the label
         var labelLeft = obj.left;
-        var labelTop = obj.top - 20; // Adjust as needed
+        var labelTop = obj.top - 30; // Adjust as needed
 
-        // Update the position of the label text
+        // Update the position and font size of the label text
         obj.text.set({
             left: labelLeft,
-            top: labelTop
+            top: labelTop,
+            fontSize: getScaledFontSize() // Update font size based on zoom level
         });
 
         // Ensure the canvas updates the changes
@@ -1711,6 +1715,13 @@ function addNumberLabel(number, obj) {
         // Check if the object has a label text associated with it
         if (modifiedObj && modifiedObj.text) {
             updateNumberLabelPosition(modifiedObj);
+        }
+    });
+
+    // Event listener to update label font size when zoom level changes
+    canvas.on('zoom', function() {
+        if (obj && obj.text) {
+            updateNumberLabelPosition(obj);
         }
     });
 }
