@@ -869,32 +869,29 @@ function drawArrow() {
 }
 
 
-// Function to create an arrow at the mouse position on 'A' keydown
 var lastMousePosition = { x: 0, y: 0 };
-var firstPress = true;  // Flag to track if it's the first press
-
-// Function to update mouse position on 'mouse:move'
-function updateMousePosition(o) {
-    var pointer = canvas.getPointer(o.e);
-    lastMousePosition.x = pointer.x;
-    lastMousePosition.y = pointer.y;
-}
-
-// Add mouse move listener once
-canvas?.on('mouse:move', updateMousePosition);
+var isCreatingArrow = false;  // Flag to track if an arrow is being created
 
 // Function to create an arrow at the mouse position on 'A' keydown
 function createArrowAtMouse() {
-    document.addEventListener('keydown', function handleKeyPress(e) {
-        if (e.key === 'a' || e.key === 'A') {
-            console.log("Pressed 'A'");
-            if (firstPress) {
-                firstPress = false;  // Set flag to false after the first press
-                return;  // Don't proceed to drawing on first press
-            }
+    document.addEventListener('keydown', function(e) {
+        if ((e.key === 'a' || e.key === 'A') && !isCreatingArrow) {
+            isCreatingArrow = true;  // Start arrow creation process
 
-            // Ensure that this listener only executes once after ignoring the first press
-            document.removeEventListener('keydown', handleKeyPress);
+            // Add the mousemove listener to track the pointer position
+            canvas?.on('mouse:move', function(o) {
+                var pointer = canvas.getPointer(o.e);
+                lastMousePosition.x = pointer.x;
+                lastMousePosition.y = pointer.y;
+            });
+
+            // Check if an object is selected on the canvas
+            var activeObject = canvas.getActiveObject();
+            if (activeObject) {
+                // Deselect the object without affecting arrow creation
+                canvas.discardActiveObject();
+                canvas.renderAll();  // Ensure the canvas re-renders after deselecting
+            }
 
             // Get the zoom level at the moment of drawing
             var zoomLevel = canvas.getZoom();
@@ -905,6 +902,7 @@ function createArrowAtMouse() {
             var endX = startX + 100 / zoomLevel;  // Extend the length of the arrow
             var endY = startY;
 
+            // Create the arrow line and its head
             var arrow = new fabric.Line([startX, startY, endX, endY], {
                 strokeWidth: 2 / zoomLevel,  // Adjust for zoom level
                 fill: 'red',
@@ -922,7 +920,7 @@ function createArrowAtMouse() {
                 endX - headLength * Math.cos(angle - Math.PI / 6),
                 endY - headLength * Math.sin(angle - Math.PI / 6)
             ], {
-                strokeWidth: 2 / zoomLevel,  // Adjust for zoom level
+                strokeWidth: 2 / zoomLevel,
                 fill: 'red',
                 stroke: 'red',
                 selectable: false,
@@ -935,13 +933,14 @@ function createArrowAtMouse() {
                 endX - headLength * Math.cos(angle + Math.PI / 6),
                 endY - headLength * Math.sin(angle + Math.PI / 6)
             ], {
-                strokeWidth: 2 / zoomLevel,  // Adjust for zoom level
+                strokeWidth: 2 / zoomLevel,
                 fill: 'red',
                 stroke: 'red',
                 selectable: false,
                 evented: false
             });
 
+            // Group the arrow and its head
             var arrowGroup = new fabric.Group([arrow, arrowHead1, arrowHead2], {
                 selectable: true,
                 evented: true,
@@ -952,22 +951,26 @@ function createArrowAtMouse() {
 
             canvas.add(arrowGroup);
 
+            // Remove individual lines after adding the group
+            canvas.remove(arrow);
+            canvas.remove(arrowHead1);
+            canvas.remove(arrowHead2);
+
             // Handle annotations and labeling
             currentNumber = getLargestNumber() + 1;
             addAnnotationRow(currentNumber);
             addNumberLabel(currentNumber, arrowGroup);
             annotationMap[currentNumber] = arrowGroup;
-
-            // Reset firstPress to true for the next time the user presses 'A'
-            firstPress = true;
-
-            // Re-add the event listener for 'A' key press
-            createArrowAtMouse();
+            
+            // After arrow creation, reset the flag
+            isCreatingArrow = false;
+            canvas.renderAll();
         }
     });
 }
 
 createArrowAtMouse();
+
 
 
 
