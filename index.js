@@ -1,8 +1,8 @@
-// Initialize fabric canvas
-// var canvas = getCanvasActive(document.querySelector('.screen .canvas'));
-// var table = initialTable(document.querySelector('.screen .table'));
+
 var canvas = null;
 var table = null;
+var canvasDraggingEnabled = false; // Flag to toggle canvas dragging
+
 /* Create A New Screen */
 const btnCreateNewScreen = document.getElementById('createNewScreen');
 //initial active a new Screen 
@@ -109,7 +109,10 @@ var drawingMode = null;  // Track the current drawing mode
 var customShape = { path: [] };  // Store custom shape path
 var deletedImageUrls = new Set();
 var isDrawing = false;
-
+function toggleCanvasDragging() {
+    canvasDraggingEnabled = !canvasDraggingEnabled;
+    console.log(`Canvas dragging ${canvasDraggingEnabled ? 'enabled' : 'disabled'}`);
+}
 canvas?.on('mouse:down', function(o) {
     images.forEach(function(img) {
         img.sendToBack();
@@ -146,53 +149,49 @@ function setDrawingMode(mode) {
     console.log(`Drawing mode set to: ${mode}`);
     resetCanvasListeners();
 }
-// Track mouse clicks on the canvas
-// Event listener for mouse down on the canvas
-canvas?.on('mouse:down', function(o) {
-    console.log('Clicked on blank canvas area');
-    var pointer = canvas.getPointer(o.e);
-    var clickedObject = canvas.findTarget(o.e);
+function handleCanvasDragging() {
+    if (!canvasDraggingEnabled) return;
 
-    if (!clickedObject) {
-        // Clicked on blank canvas area (no objects)
-        console.log('Clicked on blank canvas area');
-        // Enable panning/moving the canvas
-        canvas.isDragging = true;
-        canvas.selection = false; // Disable object selection temporarily
-        canvas.lastPosX = pointer.x;
-        canvas.lastPosY = pointer.y;
-    } else {
-        // Clicked on an object
-        console.log('Clicked on object:', clickedObject);
-        // Handle clicks on specific object types
-        if (clickedObject.type === 'image') {
-            bringImagesfromBack();
-        } else if (clickedObject.type === 'line') {
-            // Handle click on line object
-        } else {
-            sendImagesToBack();
-        }
-    }
-});
 
-// Event listener for mouse move on the canvas
-canvas?.on('mouse:move', function(o) {
-    if (canvas.isDragging) {
+    canvas.on('mouse:down', function(o) {
         var pointer = canvas.getPointer(o.e);
-        var delta = new fabric.Point(pointer.x - canvas.lastPosX, pointer.y - canvas.lastPosY);
-        canvas.relativePan(delta);
-        canvas.lastPosX = pointer.x;
-        canvas.lastPosY = pointer.y;
+        if (!canvas.findTarget(o.e)) {
+            canvas.isDragging = true;
+            canvas.selection = false; // Disable object selection temporarily
+            canvas.lastPosX = pointer.x;
+            canvas.lastPosY = pointer.y;
+        }
+    });
+
+    // Event listener for mouse move on the canvas
+    canvas.on('mouse:move', function(o) {
+        if (canvas.isDragging) {
+            var pointer = canvas.getPointer(o.e);
+            var delta = new fabric.Point(pointer.x - canvas.lastPosX, pointer.y - canvas.lastPosY);
+            canvas.relativePan(delta);
+            canvas.lastPosX = pointer.x;
+            canvas.lastPosY = pointer.y;
+        }
+    });
+
+    // Event listener for mouse up on the canvas
+    canvas.on('mouse:up', function(o) {
+        canvas.isDragging = false;
+        canvas.selection = true; // Re-enable object selection
+    });
+}
+
+// Toggle dragging on and off with a keyboard shortcut (e.g., 'd' key)
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'k') {
+        toggleCanvasDragging();
+        handleCanvasDragging();
     }
 });
-
-// Event listener for mouse up on the canvas
-canvas?.on('mouse:up', function(o) {
-    canvas.isDragging = false;
-    canvas.selection = true; // Re-enable object selection
-});
-
-
+function moveblankcanvas(){
+    toggleCanvasDragging();
+    handleCanvasDragging();
+}
 // Event handler for mouse down event
 canvas?.on('mouse:down', function (options) {
     if (!drawingMode) return;
@@ -346,19 +345,16 @@ function bringImagesfromBack() {
 function uploadImage() {
     document.getElementById('file').click();
 }
-// Event listeners for buttons
 document.getElementById('imageLoader').addEventListener('change', handleImage, false);
 
 document.getElementById('drawLine').addEventListener('click', () => setDrawingMode('line'));
-//document.getElementById('drawCircle').addEventListener('click', () => setDrawingMode('circle'));
 document.getElementById('drawArrow').addEventListener('click', () => setDrawingMode('arrow'));
-//document.getElementById('drawRectangle').addEventListener('click', () => setDrawingMode('rectangle'));
-//document.getElementById('drawCustomShape').addEventListener('click', () => setDrawingMode('customShape'));
+
 document.getElementById('deleteAnnotation').addEventListener('click', deleteSelected);
 document.getElementById('toggleBackgroundButton').addEventListener('click', toggleBackground);
 document.getElementById('zoomIn').addEventListener('click', zoomIn);
 document.getElementById('zoomOut').addEventListener('click', zoomOut);
-
+document.getElementById('moveblankcanvas').addEventListener('click', moveblankcanvas);
 table?.addEventListener('click', function(event) {
     // Deselect any active object on canvas
     canvas.discardActiveObject();
@@ -390,166 +386,7 @@ document.addEventListener('keydown', function(event) {
         paste();
     } 
 });
-// Function to create a thin long arrow
-// Function to create a thin long arrow
-/*function createThinLongArrow(x, y) {
-    const parentScreen = document.querySelector('.active #screen'); // Adjust selector as necessary
-    if (!parentScreen) {
-        console.error('Parent screen not found');
-        return;
-    }
-    
-    const canvasElement = parentScreen.querySelector('#imageCanvas');
-    if (!canvasElement) {
-        console.error('Canvas element not found');
-        return;
-    }
 
-    const canvas = new fabric.Canvas(canvasElement);
-    canvas.discardActiveObject();
-    var headLength = 15; // Length of the arrowhead
-    var lineLength = 150; // Length of the main arrow line
-    var strokeWidth = 1; // Thin line width
-    var minMargin = 70; // Minimum margin from the boundary
-
-    // Get canvas dimensions
-    var canvasWidth = canvas.width;
-    var canvasHeight = canvas.height;
-
-    // Adjust x and y to ensure they are not too close to the boundary
-    x = Math.max(minMargin, Math.min(x, canvasWidth - minMargin));
-    y = Math.max(minMargin, Math.min(y, canvasHeight - minMargin));
-    console.log(x, y);
-
-    // Determine nearest boundary
-    var distances = [
-        { distance: x - minMargin, direction: 'left' },
-        { distance: canvasWidth - x - minMargin, direction: 'right' },
-        { distance: y - minMargin, direction: 'top' },
-        { distance: canvasHeight - y - minMargin, direction: 'bottom' }
-    ];
-    var nearest = distances.reduce((prev, curr) => (prev.distance < curr.distance ? prev : curr));
-
-    var endX = x;
-    var endY = y;
-
-    switch (nearest.direction) {
-        case 'left':
-            endX -= lineLength;
-            break;
-        case 'right':
-            endX += lineLength;
-            break;
-        case 'top':
-            endY -= lineLength;
-            break;
-        case 'bottom':
-            endY += lineLength;
-            break;
-    }
-
-    // Create the main line of the arrow
-    var arrow = new fabric.Line([endX, endY, x, y], {
-        strokeWidth: strokeWidth, // Thin line width
-        fill: 'red',
-        stroke: 'red',
-        selectable: true,
-        originX: 'center',
-        originY: 'center'
-    });
-
-    // Calculate the angle of the line
-    var angle = Math.atan2(y - endY, x - endX);
-
-    // Create the two lines for the arrowhead
-    var arrowHead1 = new fabric.Line([
-        x,
-        y,
-        x - headLength * Math.cos(angle - Math.PI / 6),
-        y - headLength * Math.sin(angle - Math.PI / 6)
-    ], {
-        strokeWidth: strokeWidth, // Thin line width
-        fill: 'red',
-        stroke: 'red',
-        selectable: true,
-        originX: 'center',
-        originY: 'center'
-    });
-
-    var arrowHead2 = new fabric.Line([
-        x,
-        y,
-        x - headLength * Math.cos(angle + Math.PI / 6),
-        y - headLength * Math.sin(angle + Math.PI / 6)
-    ], {
-        strokeWidth: strokeWidth, // Thin line width
-        fill: 'red',
-        stroke: 'red',
-        selectable: true,
-        originX: 'center',
-        originY: 'center'
-    });
-
-    // Group the arrow line and arrowheads together
-    var arrowGroup = new fabric.Group([arrow, arrowHead1, arrowHead2], {
-        selectable: true,
-        originX: 'center',
-        originY: 'center'
-    });
-
-    canvas.add(arrowGroup);
-
-    // Create an annotation number
-    var currentNumber = getLargestNumber() + 1;
-
-    // Add the arrow group to the annotationMap
-    annotationMap[currentNumber] = arrowGroup;
-    addNumberLabel(currentNumber, arrowGroup);
-    // Add an annotation row
-    addAnnotationRow(currentNumber);
-}
-
-// Function to handle keypress event for creating arrows
-function setupArrowShortcut() {
-    const parentScreen = document.querySelector('.active #screen'); // Adjust selector as necessary
-    if (!parentScreen) {
-        console.error('Parent screen not found');
-        return;
-    }
-
-    const canvasElement = parentScreen.querySelector('#imageCanvas');
-    if (!canvasElement) {
-        console.error('Canvas element not found');
-        return;
-    }
-
-    const canvas = new fabric.Canvas(canvasElement);
-    var mouseX, mouseY;
-
-    // Listen for mouse movement to get the current position
-    canvas.on('mouse:move', function(o) {
-        var pointer = canvas.getPointer(o.e);
-        mouseX = pointer.x;
-        mouseY = pointer.y;
-    });
-    
-    // Listen for keypress to create the arrow
-    document.addEventListener('keydown', function(event) {
-        if (event.key === 'Enter') {
-            console.log(mouseX,mouseY);
-            if (mouseX !== undefined && mouseY !== undefined) {
-                console.log(mouseX, mouseY);
-                createThinLongArrow(mouseX, mouseY);
-            }
-        }
-    });
-}
-
-// Initialize the setup
-setupArrowShortcut();
-*/
-
-// Define an array of colors
 var colors = ['white','black','red', 'blue', 'green', 'yellow', 'purple']; // màu cho đường
 var colorsfill = ['white','black','red', 'blue', 'green', 'yellow', 'purple','']; // màu cho phần phía trong
 var colorIndex = 0; // Chỉ số index của mảng
@@ -716,9 +553,7 @@ function saveStatedelete() {
     redoStackdelete = []; // Clear redo stack after new state saved
 }
 
-// Event listener for 'Delete' key press
-// Event listener for 'Delete' key press
-// Flag to track if the delete action should proceed
+
 let proceedWithDelete = false;
 
 // Event listener for 'Delete' key press
@@ -1038,26 +873,35 @@ function drawArrow() {
 var lastMousePosition = { x: 0, y: 0 };
 var firstPress = true;  // Flag to track if it's the first press
 
+// Function to update mouse position on 'mouse:move'
+function updateMousePosition(o) {
+    var pointer = canvas.getPointer(o.e);
+    lastMousePosition.x = pointer.x;
+    lastMousePosition.y = pointer.y;
+}
+
+// Add mouse move listener once
+canvas?.on('mouse:move', updateMousePosition);
+
 // Function to create an arrow at the mouse position on 'A' keydown
 function createArrowAtMouse() {
-    document.addEventListener('keydown', function(e) {
+    document.addEventListener('keydown', function handleKeyPress(e) {
         if (e.key === 'a' || e.key === 'A') {
-            canvas?.on('mouse:move', function(o) {
-                var pointer = canvas.getPointer(o.e);
-                lastMousePosition.x = pointer.x;
-                lastMousePosition.y = pointer.y;
-                console.log(lastMousePosition.y, lastMousePosition.x);
-            });
+            console.log("Pressed 'A'");
             if (firstPress) {
                 firstPress = false;  // Set flag to false after the first press
-                return;  // Don't proceed to drawing
+                return;  // Don't proceed to drawing on first press
             }
+
+            // Ensure that this listener only executes once after ignoring the first press
+            document.removeEventListener('keydown', handleKeyPress);
+
             // Get the zoom level at the moment of drawing
             var zoomLevel = canvas.getZoom();
 
             // Adjust the positions based on zoom level to ensure size changes
-            var startX = lastMousePosition.x ;
-            var startY = lastMousePosition.y ;
+            var startX = lastMousePosition.x;
+            var startY = lastMousePosition.y;
             var endX = startX + 100 / zoomLevel;  // Extend the length of the arrow
             var endY = startY;
 
@@ -1108,24 +952,24 @@ function createArrowAtMouse() {
 
             canvas.add(arrowGroup);
 
-            // Remove individual lines after adding the group
-            canvas.remove(arrow);
-            canvas.remove(arrowHead1);
-            canvas.remove(arrowHead2);
-
             // Handle annotations and labeling
             currentNumber = getLargestNumber() + 1;
             addAnnotationRow(currentNumber);
             addNumberLabel(currentNumber, arrowGroup);
             annotationMap[currentNumber] = arrowGroup;
+
+            // Reset firstPress to true for the next time the user presses 'A'
+            firstPress = true;
+
+            // Re-add the event listener for 'A' key press
+            createArrowAtMouse();
         }
     });
 }
 
-
-
-
 createArrowAtMouse();
+
+
 
 function drawCircle() {
     var circle, isDown;
