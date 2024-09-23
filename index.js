@@ -1425,7 +1425,6 @@ function getLargestNumber() {
     return largest;
 }
 
-// Function to add a new row in the annotation table
 function addAnnotationRow(number) {
     var table = document.querySelector('.screen.active #annotationTable').getElementsByTagName('tbody')[0];
     var newRow = table?.insertRow();
@@ -1437,43 +1436,42 @@ function addAnnotationRow(number) {
 
     cell1.innerHTML = `<input type="number" id="annotationInput${number}" value="${number}" onchange="updateAnnotationNumber(${number}, this.value)">`;
 
-    // Replace text input with select for 'Chất liệu'
+    // Material selection with multiple options
     cell2.innerHTML = `
-        <select id="material${number}">
-            <option value="">Select Material</option>
+        <select id="material${number}" multiple onchange="updateAnnotationMaterial(${number}, this)">
             <option value="Metal">Metal</option>
-            <option value="plastic">plastic</option>
-            <option value="wood">wood</option>
-            <option value="paper">paper</option>
-            <option value="textile">textile</option>
-            <option value="glass">glass</option>
+            <option value="plastic">Plastic</option>
+            <option value="wood">Wood</option>
+            <option value="paper">Paper</option>
+            <option value="textile">Textile</option>
+            <option value="glass">Glass</option>
         </select>
     `;
 
-    // Replace text input with select for 'Màu sắc'
+    // Color selection with multiple options
     cell3.innerHTML = `
-        <select id="color${number}" onchange="updateAnnotationColor(${number}, this.value)">
-            <option value="">Select Color</option>
+        <select id="color${number}" multiple onchange="updateAnnotationColor(${number}, this)">
             <option value="Red">Red</option>
             <option value="Blue">Blue</option>
             <option value="Green">Green</option>
-            <option value="yellow">yellow</option>
-            <option value="white">white</option>
-            <option value="copper">copper</option>
-            <option value="black">black</option>
-            <option value="bing">bing</option>
-            <option value="grey">grey</option>
-            <option value="transparent">transparent</option>
-            <option value="purple">purple</option>
-            <option value="orange">orange</option>
-            <option value="silver">silver</option>
+            <option value="Yellow">Yellow</option>
+            <option value="White">White</option>
+            <option value="Copper">Copper</option>
+            <option value="Black">Black</option>
+            <option value="Bing">Bing</option>
+            <option value="Grey">Grey</option>
+            <option value="Transparent">Transparent</option>
+            <option value="Purple">Purple</option>
+            <option value="Orange">Orange</option>
+            <option value="Silver">Silver</option>
         </select>
     `;
-    //color: , green, , blue, , , , red, , , , , ,
+
     cell4.innerHTML = `<input type="text" id="description${number}" value="" onchange="updateAnnotationDescription(${number}, this.value)">`;
 
     sortTable(); // Sort the table after adding a new row
 }
+
 
 
 // Function to delete a row from the annotation table
@@ -1590,8 +1588,8 @@ function addNumberLabel(number, obj) {
     }
 
     // Calculate the position relative to the object
-    var labelLeft = obj.left;
-    var labelTop = obj.top - 20; // Adjust as needed
+    var labelLeft = obj.left - 70;
+    var labelTop = obj.top - 5; // Adjust as needed
 
     var text = new fabric.Text(String(number), {
         left: labelLeft,
@@ -1614,8 +1612,8 @@ function addNumberLabel(number, obj) {
         if (!obj || !obj.text) return;
 
         // Calculate the new position of the label
-        var labelLeft = obj.left;
-        var labelTop = obj.top - 30; // Adjust as needed
+        var labelLeft = obj.left - 70;
+        var labelTop = obj.top - 5; // Adjust as needed
 
         // Update the position and font size of the label text
         obj.text.set({
@@ -1689,11 +1687,16 @@ function updateAnnotationDescription(number, description) {
     console.log(`Annotation ${number} description updated to: ${description}`);
 }
 
-function updateAnnotationColor(number, color) {
-    canvas.discardActiveObject();
-    // Custom logic to handle color updates
-    console.log(`Annotation ${number} color updated to: ${color}`);
+function updateAnnotationMaterial(number, selectElement) {
+    const selectedMaterials = Array.from(selectElement.selectedOptions).map(option => option.value);
+    console.log(`Annotation ${number} materials updated to: ${selectedMaterials.join(', ')}`);
 }
+
+function updateAnnotationColor(number, selectElement) {
+    const selectedColors = Array.from(selectElement.selectedOptions).map(option => option.value);
+    console.log(`Annotation ${number} colors updated to: ${selectedColors.join(', ')}`);
+}
+
 // Initialize history array
 
 // Save state on every modification
@@ -1721,7 +1724,7 @@ function exportToExcel() {
     worksheet.mergeCells('A1:F1');
 
     const headerRow = worksheet.getRow(4);
-    headerRow.values = ['No.', 'Material', 'Color', 'remask', 'Location', 'Description'];
+    headerRow.values = ['No.', 'Material', 'Color', 'Screen', 'Location', 'Description'];
     headerRow.font = { bold: true };
 
     headerRow.eachCell((cell, colNumber) => {
@@ -1738,9 +1741,9 @@ function exportToExcel() {
         };
     });
 
-    worksheet.getColumn(1).width = 60;
-    worksheet.getColumn(2).width = 120;
-    worksheet.getColumn(3).width = 120;
+    worksheet.getColumn(1).width = 20;
+    worksheet.getColumn(2).width = 30;
+    worksheet.getColumn(3).width = 30;
     worksheet.getColumn(4).width = 80;
 
     const screens = document.querySelectorAll('.screen');
@@ -1748,7 +1751,7 @@ function exportToExcel() {
     let maxCanvasWidth = 200; // Initialize the minimum column width
 
     screens.forEach((screen, screenIndex) => {
-        const screenNumber = `No. ${screenIndex + 1}`;
+        const screenNumber = `Screen ${screenIndex + 1}`;
         const canvases = screen.querySelectorAll('#imageCanvas');
 
         canvases.forEach((canvasElement) => {
@@ -1774,11 +1777,14 @@ function exportToExcel() {
                     }
 
                     const number = numberInput.value;
-                    const material = materialSelect.value;
-                    const color = colorSelect.value;
+
+                    // Get multiple selected values for material and color
+                    const selectedMaterials = Array.from(materialSelect.selectedOptions).map(option => option.value).join('/');
+                    const selectedColors = Array.from(colorSelect.selectedOptions).map(option => option.value).join('/');
+
                     const description = descriptionInput.value;
 
-                    const rowData = [number, material, color, screenNumber, '', description];
+                    const rowData = [number, selectedMaterials, selectedColors, screenNumber, '', description];
                     console.log("Adding row to Annotations sheet:", rowData);
                     const excelRow = worksheet.getRow(currentRow);
                     excelRow.values = rowData;
@@ -1847,3 +1853,4 @@ function exportToExcel() {
         console.log("Export to Excel complete.");
     });
 }
+
