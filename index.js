@@ -1,4 +1,3 @@
-
 var canvas = null;
 var table = null;
 var canvasDraggingEnabled = false; // Flag to toggle canvas dragging
@@ -12,6 +11,11 @@ function initializeCanvas(screen) {
     canvas = new fabric.Canvas(canvasElement);
     canvasElement.fabricCanvas = canvas;
     parentScreen.querySelector('.active').setAttribute('data-initialized', 'true'); // Đánh dấu canvas đã được khởi tạo
+    canvas?.on('mouse:move', updateMousePosition);
+    canvas?.on('mouse:out', function() {
+        isCreatingArrow = false;  // Disable arrow creation
+        console.log("Mouse left the canvas, arrow creation disabled.");
+    });
 }
 //get current canvas is the canvas of active screen
 function getCanvasActive(screen) {
@@ -152,7 +156,6 @@ function setDrawingMode(mode) {
 function handleCanvasDragging() {
     if (!canvasDraggingEnabled) return;
 
-
     canvas.on('mouse:down', function(o) {
         var pointer = canvas.getPointer(o.e);
         if (!canvas.findTarget(o.e)) {
@@ -167,8 +170,16 @@ function handleCanvasDragging() {
     canvas.on('mouse:move', function(o) {
         if (canvas.isDragging) {
             var pointer = canvas.getPointer(o.e);
-            var delta = new fabric.Point(pointer.x - canvas.lastPosX, pointer.y - canvas.lastPosY);
-            canvas.relativePan(delta);
+            // Get the zoom level
+            var zoomLevel = canvas.getZoom();
+            // Adjust delta based on the zoom level
+            var deltaX = (pointer.x - canvas.lastPosX) / zoomLevel;
+            var deltaY = (pointer.y - canvas.lastPosY) / zoomLevel;
+
+            // Add a sensitivity factor to slow down the dragging
+            var sensitivityFactor = 0.5; // Adjust this value as needed
+            canvas.relativePan(new fabric.Point(deltaX * sensitivityFactor, deltaY * sensitivityFactor));
+            
             canvas.lastPosX = pointer.x;
             canvas.lastPosY = pointer.y;
         }
@@ -180,6 +191,8 @@ function handleCanvasDragging() {
         canvas.selection = true; // Re-enable object selection
     });
 }
+
+
 
 // Toggle dragging on and off with a keyboard shortcut (e.g., 'd' key)
 document.addEventListener('keydown', function(event) {
@@ -872,18 +885,48 @@ function drawArrow() {
 var lastMousePosition = { x: 0, y: 0 };
 var isCreatingArrow = false;  // Flag to track if an arrow is being created
 
+// Function to update the mouse position
+function updateMousePosition(o) {
+    var pointer = canvas.getPointer(o.e);
+    lastMousePosition.x = pointer.x;
+    lastMousePosition.y = pointer.y;
+    console.log("Mouse Position:", lastMousePosition.y, lastMousePosition.x);
+    isCreatingArrow = true; 
+}
+
+// Add mouse move listener once to update mouse position
+canvas?.on('mouse:move', updateMousePosition);
+
+// Disable arrow creation if the mouse moves out of the canvas
+canvas?.on('mouse:out', function() {
+    isCreatingArrow = false;  // Disable arrow creation
+    console.log("Mouse left the canvas, arrow creation disabled.");
+});
+
+// Disable arrow creation if clicked outside the canvas
+document.addEventListener('click', function(e) {
+    var canvasRect = canvas.getElement().getBoundingClientRect();  // Get canvas position and dimensions
+    var isOutside = 
+        e.clientX < canvasRect.left || 
+        e.clientX > canvasRect.right || 
+        e.clientY < canvasRect.top || 
+        e.clientY > canvasRect.bottom;
+
+    if (isOutside) {
+        isCreatingArrow = false;  // Disable arrow creation
+        console.log("Clicked outside the canvas, arrow creation disabled.");
+    }
+    else {
+        isCreatingArrow = true; 
+    }
+});
+
 // Function to create an arrow at the mouse position on 'A' keydown
 function createArrowAtMouse() {
     document.addEventListener('keydown', function(e) {
-        if ((e.key === 'a' || e.key === 'A') && !isCreatingArrow) {
+        console.log(isCreatingArrow);
+        if ((e.key === 'a' || e.key === 'A') && isCreatingArrow) {
             isCreatingArrow = true;  // Start arrow creation process
-
-            // Add the mousemove listener to track the pointer position
-            canvas?.on('mouse:move', function(o) {
-                var pointer = canvas.getPointer(o.e);
-                lastMousePosition.x = pointer.x;
-                lastMousePosition.y = pointer.y;
-            });
 
             // Check if an object is selected on the canvas
             var activeObject = canvas.getActiveObject();
@@ -969,10 +1012,8 @@ function createArrowAtMouse() {
     });
 }
 
+// Call the function to enable arrow creation functionality
 createArrowAtMouse();
-
-
-
 
 function drawCircle() {
     var circle, isDown;
@@ -1394,14 +1435,46 @@ function addAnnotationRow(number) {
     var cell3 = newRow.insertCell(2);
     var cell4 = newRow.insertCell(3);
 
-
     cell1.innerHTML = `<input type="number" id="annotationInput${number}" value="${number}" onchange="updateAnnotationNumber(${number}, this.value)">`;
-    cell2.innerHTML = `<input type="text" id="material${number}" value="">`;
-    cell3.innerHTML = `<input type="text" id="color${number}" value="" onchange="updateAnnotationColor(${number}, this.value)">`;
+
+    // Replace text input with select for 'Chất liệu'
+    cell2.innerHTML = `
+        <select id="material${number}">
+            <option value="">Select Material</option>
+            <option value="Metal">Metal</option>
+            <option value="plastic">plastic</option>
+            <option value="wood">wood</option>
+            <option value="paper">paper</option>
+            <option value="textile">textile</option>
+            <option value="glass">glass</option>
+        </select>
+    `;
+
+    // Replace text input with select for 'Màu sắc'
+    cell3.innerHTML = `
+        <select id="color${number}" onchange="updateAnnotationColor(${number}, this.value)">
+            <option value="">Select Color</option>
+            <option value="Red">Red</option>
+            <option value="Blue">Blue</option>
+            <option value="Green">Green</option>
+            <option value="yellow">yellow</option>
+            <option value="white">white</option>
+            <option value="copper">copper</option>
+            <option value="black">black</option>
+            <option value="bing">bing</option>
+            <option value="grey">grey</option>
+            <option value="transparent">transparent</option>
+            <option value="purple">purple</option>
+            <option value="orange">orange</option>
+            <option value="silver">silver</option>
+        </select>
+    `;
+    //color: , green, , blue, , , , red, , , , , ,
     cell4.innerHTML = `<input type="text" id="description${number}" value="" onchange="updateAnnotationDescription(${number}, this.value)">`;
 
     sortTable(); // Sort the table after adding a new row
 }
+
 
 // Function to delete a row from the annotation table
 function deleteAnnotationRow(number) {
@@ -1627,112 +1700,173 @@ function updateAnnotationColor(number, color) {
 canvas?.on('object:added', saveState);
 canvas?.on('object:modified', saveState);
 canvas?.on('object:removed', saveState);
-// function to export file in Pdf and excel
 const exportExcelButton = document.getElementById('exportExcel');
 exportExcelButton.addEventListener('click', exportToExcel);
+
 function exportToExcel() {
     console.log("Starting export to Excel...");
+
+    // Get the filename from the input field
+    const filenameInput = document.getElementById('excelFilename');
+    let filename = filenameInput.value.trim();
+
+    // Use a default filename if the input is empty
+    if (!filename) {
+        filename = 'annotations'; // Default filename
+    }
 
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Annotations and Canvas');
 
-    // Add header to Excel starting from row 2
-    const headerRow = worksheet.getRow(2);
-    headerRow.values = ['Số thứ tự', 'Chất liệu', 'Màu sắc', '', 'Location','Thông tin mô tả'];
+    // Add filename to the first row
+    const titleRow = worksheet.getRow(1);
+    titleRow.values = [filename]; // Set the filename in the first cell
+    titleRow.font = { bold: true, size: 14 }; // Make the filename bold and larger font
+    worksheet.mergeCells('A1:F1'); // Merge cells A1 to F1 for the title
+
+    // Leave two empty rows (rows 2 and 3)
+
+    // Add header to Excel starting from row 4
+    const headerRow = worksheet.getRow(4);
+    headerRow.values = ['Số thứ tự', 'Chất liệu', 'Màu sắc', 'Screen Number', 'Location', 'Thông tin mô tả']; // Column headers
     headerRow.font = { bold: true };
 
-    // Set border for the header row
+    // Apply yellow background to the header row
     headerRow.eachCell((cell, colNumber) => {
-        if (colNumber !== 5) { // Skip column E
-            cell.border = {
-                top: { style: 'thin' },
-                left: { style: 'thin' },
-                bottom: { style: 'thin' },
-                right: { style: 'thin' }
-            };
-        }
+        cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFFF00' }, // Yellow color
+        };
+        cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' },
+        };
     });
-    //Cái chỗ này kết quả trả về là nhiều bảng gộp lại nè
-    // Add annotations table to Excel starting from row 3
-    const rows = document.querySelectorAll('.annotationTable tbody tr');
-    
-    let currentRow = 3; // Start adding data from row 3
-    rows.forEach(row => {
-        console.log("Processing row:", row.innerHTML); // Log the HTML of each row to inspect its structure
-        try {
-            const numberInput = row.querySelector('input[type="number"]');
-            const descriptionInput = row.querySelector('input[type="text"]:first-of-type');
-            const colorInput = row.querySelector('input[type="text"]:last-of-type');
 
-            if (!numberInput || !descriptionInput || !colorInput) {
-                console.error("Error finding inputs in row:", row);
-                return;
+    // Set column widths
+    worksheet.getColumn(1).width = 15; // Số thứ tự
+    worksheet.getColumn(2).width = 30; // Chất liệu
+    worksheet.getColumn(3).width = 30; // Màu sắc
+    worksheet.getColumn(4).width = 20; // Screen Number
+    worksheet.getColumn(5).width = 50; // Location (to fit the canvas image)
+    worksheet.getColumn(6).width = 40; // Thông tin mô tả
+
+    // Get all screens and iterate over them
+    const screens = document.querySelectorAll('.screen');
+    let currentRow = 5; // Start adding data from row 5
+
+    screens.forEach((screen, screenIndex) => {
+        const screenNumber = `No. ${screenIndex + 1}`; // Change "Screen Number" to "No. X" format
+
+        // Get all canvases within the screen, not just the active one
+        const canvases = screen.querySelectorAll('#imageCanvas');
+
+        canvases.forEach((canvasElement) => {
+            // Initialize Fabric.js canvas from canvas element if not initialized
+            let fabricCanvas = canvasElement.fabricCanvas;
+            if (!fabricCanvas) {
+                fabricCanvas = new fabric.Canvas(canvasElement);
+                canvasElement.fabricCanvas = fabricCanvas;
             }
 
-            const number = numberInput.value;
-            const description = descriptionInput.value;
-            const color = colorInput.value;
+            // Get the annotations table for this screen
+            const rows = screen.querySelectorAll('.annotationTable tbody tr');
+            const startRow = currentRow; // Keep track of the start row for merging
 
-            const rowData = [number, description, color, '', ''];
-            console.log("Adding row to Annotations sheet:", rowData);
-            const excelRow = worksheet.getRow(currentRow);
-            excelRow.values = rowData;
+            rows.forEach(row => {
+                try {
+                    const numberInput = row.querySelector('input[type="number"]');
+                    const materialSelect = row.querySelector('select[id^="material"]');
+                    const colorSelect = row.querySelector('select[id^="color"]');
+                    const descriptionInput = row.querySelector('input[type="text"]');
 
-            // Set border for each cell in the row, except column E
-            excelRow.eachCell((cell, colNumber) => {
-                if (colNumber !== 5) { // Skip column E
-                    cell.border = {
-                        top: { style: 'thin' },
-                        left: { style: 'thin' },
-                        bottom: { style: 'thin' },
-                        right: { style: 'thin' }
-                    };
+                    // Ensure all necessary elements are present
+                    if (!numberInput || !materialSelect || !colorSelect || !descriptionInput) {
+                        console.error("Error finding inputs in row:", row);
+                        return;
+                    }
+
+                    const number = numberInput.value;
+                    const material = materialSelect.value; // Get value from select for 'Chất liệu'
+                    const color = colorSelect.value; // Get value from select for 'Màu sắc'
+                    const description = descriptionInput.value; // Text input for 'Thông tin mô tả'
+
+                    // New order: 'Số thứ tự', 'Chất liệu', 'Màu sắc', 'Screen Number', 'Location', 'Thông tin mô tả'
+                    const rowData = [number, material, color, screenNumber, '', description]; // Leave Location empty for now
+                    console.log("Adding row to Annotations sheet:", rowData);
+                    const excelRow = worksheet.getRow(currentRow);
+                    excelRow.values = rowData;
+
+                    // Set border for each cell in the row, except the Location column
+                    excelRow.eachCell((cell, colNumber) => {
+                        if (colNumber !== 5) { // Skip column F (Location)
+                            cell.border = {
+                                top: { style: 'thin' },
+                                left: { style: 'thin' },
+                                bottom: { style: 'thin' },
+                                right: { style: 'thin' }
+                            };
+                        }
+                    });
+
+                    // Set row height for the data rows
+                    excelRow.height = 40; // Adjust the row height as needed
+
+                    currentRow++;
+                } catch (error) {
+                    console.error("Error processing row:", row, error);
                 }
             });
 
-            currentRow++;
-        } catch (error) {
-            console.error("Error processing row:", row, error);
-        }
+            // Merge cells in the 'Screen Number' column for all rows of the same screen
+            if (currentRow - startRow > 1) {
+                worksheet.mergeCells(`D${startRow}:D${currentRow - 1}`); // Merge cells for the same screen number
+            }
+
+            // Apply blue color to the 'Screen Number' column
+            worksheet.getCell(`D${startRow}`).font = { color: { argb: '0000FF' }, bold: true };
+
+            // Merge cells in the 'Location' column to create a single cell for the image
+            const totalRows = currentRow - 1; // Total number of rows occupied by the table
+            worksheet.mergeCells(`E${startRow}:E${totalRows}`); // Merge cells from E<first row> to E<totalRows>
+
+            // Add canvas image to Excel in the merged cell
+            const canvasImage = canvasElement.toDataURL('image/png').replace(/^data:image\/png;base64,/, '');
+            const imageId = workbook.addImage({
+                base64: canvasImage,
+                extension: 'png',
+            });
+
+            // Calculate the number of rows the table occupies and add the image to start from the first row of this screen
+            const totalHeight = (totalRows - startRow + 1) * 40; // Adjust image height based on the number of rows
+            const totalWidth = 16 / 9 * totalHeight; // Adjust image width as needed
+
+            // Set the width of column E to fit the image
+            worksheet.getColumn(5).width = totalWidth / 7; // Adjust this value as needed
+
+            // Add the image to the merged cell (E<first row>:E<totalRows>)
+            worksheet.addImage(imageId, {
+                tl: { col: 4, row: startRow }, // Start at the top left of the merged cell E<first row>
+                ext: { width: totalWidth, height: totalHeight } // Adjust dimensions based on the table size
+            });
+
+            console.log(`Adding canvas image for screen ${screenIndex + 1} to Excel`);
+        });
     });
 
-    //Mầy tự giải quyết mấy cái hình nó bị ghép vào nhau đi
-    // Add canvas image to Excel
-    const canvasImage = canvas.toDataURL('image/png').replace(/^data:image\/png;base64,/, '');
-    const imageId = workbook.addImage({
-        base64: canvasImage,
-        extension: 'png',
-    });
-
-    // Calculate the number of rows the table occupies and add the image to start from row 3
-    const imageRow = 3; // The image should start from row 3
-    const totalHeight = rows.length * 20; // Adjust image height based on number of rows
-    const totalWidth = 16/9*totalHeight; // Adjust image width as needed
-
-    // Set the width of column E to fit the image
-    worksheet.getColumn(5).width = totalWidth / 7; // Adjust this value as needed
-
-    // Add the image to column E, starting from row 3
-    worksheet.addImage(imageId, {
-        tl: { col: 4, row: imageRow - 1 }, // E is column 5 (0-based index), starting at the correct row
-        ext: { width: totalWidth, height: totalHeight } // Adjust dimensions based on the table size
-    });
-
-    console.log("Adding canvas image to Excel");
-
-    console.log("Saving workbook as annotations.xlsx...");
+    console.log(`Saving workbook as ${filename}.xlsx...`);
     workbook.xlsx.writeBuffer().then(buffer => {
         const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'annotations.xlsx';
+        a.download = `${filename}.xlsx`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         console.log("Export to Excel complete.");
     });
 }
-
-
-
