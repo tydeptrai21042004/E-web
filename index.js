@@ -1706,37 +1706,29 @@ exportExcelButton.addEventListener('click', exportToExcel);
 function exportToExcel() {
     console.log("Starting export to Excel...");
 
-    // Get the filename from the input field
     const filenameInput = document.getElementById('excelFilename');
     let filename = filenameInput.value.trim();
-
-    // Use a default filename if the input is empty
     if (!filename) {
-        filename = 'annotations'; // Default filename
+        filename = 'annotations';
     }
 
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Annotations and Canvas');
 
-    // Add filename to the first row
     const titleRow = worksheet.getRow(1);
-    titleRow.values = [filename]; // Set the filename in the first cell
-    titleRow.font = { bold: true, size: 14 }; // Make the filename bold and larger font
-    worksheet.mergeCells('A1:F1'); // Merge cells A1 to F1 for the title
+    titleRow.values = [filename];
+    titleRow.font = { bold: true, size: 14 };
+    worksheet.mergeCells('A1:F1');
 
-    // Leave two empty rows (rows 2 and 3)
-
-    // Add header to Excel starting from row 4
     const headerRow = worksheet.getRow(4);
-    headerRow.values = ['Số thứ tự', 'Chất liệu', 'Màu sắc', 'Screen Number', 'Location', 'Thông tin mô tả']; // Column headers
+    headerRow.values = ['Số thứ tự', 'Chất liệu', 'Màu sắc', 'Screen Number', 'Location', 'Thông tin mô tả'];
     headerRow.font = { bold: true };
 
-    // Apply yellow background to the header row
     headerRow.eachCell((cell, colNumber) => {
         cell.fill = {
             type: 'pattern',
             pattern: 'solid',
-            fgColor: { argb: 'FFFF00' }, // Yellow color
+            fgColor: { argb: 'FFFF00' },
         };
         cell.border = {
             top: { style: 'thin' },
@@ -1746,35 +1738,28 @@ function exportToExcel() {
         };
     });
 
-    // Set column widths
-    worksheet.getColumn(1).width = 15; // Số thứ tự
-    worksheet.getColumn(2).width = 30; // Chất liệu
-    worksheet.getColumn(3).width = 30; // Màu sắc
-    worksheet.getColumn(4).width = 20; // Screen Number
-    worksheet.getColumn(5).width = 50; // Location (to fit the canvas image)
-    worksheet.getColumn(6).width = 40; // Thông tin mô tả
+    worksheet.getColumn(1).width = 15;
+    worksheet.getColumn(2).width = 30;
+    worksheet.getColumn(3).width = 30;
+    worksheet.getColumn(4).width = 20;
 
-    // Get all screens and iterate over them
     const screens = document.querySelectorAll('.screen');
-    let currentRow = 5; // Start adding data from row 5
+    let currentRow = 5;
+    let maxCanvasWidth = 50; // Initialize the minimum column width
 
     screens.forEach((screen, screenIndex) => {
-        const screenNumber = `No. ${screenIndex + 1}`; // Change "Screen Number" to "No. X" format
-
-        // Get all canvases within the screen, not just the active one
+        const screenNumber = `No. ${screenIndex + 1}`;
         const canvases = screen.querySelectorAll('#imageCanvas');
 
         canvases.forEach((canvasElement) => {
-            // Initialize Fabric.js canvas from canvas element if not initialized
             let fabricCanvas = canvasElement.fabricCanvas;
             if (!fabricCanvas) {
                 fabricCanvas = new fabric.Canvas(canvasElement);
                 canvasElement.fabricCanvas = fabricCanvas;
             }
 
-            // Get the annotations table for this screen
             const rows = screen.querySelectorAll('.annotationTable tbody tr');
-            const startRow = currentRow; // Keep track of the start row for merging
+            const startRow = currentRow;
 
             rows.forEach(row => {
                 try {
@@ -1783,26 +1768,23 @@ function exportToExcel() {
                     const colorSelect = row.querySelector('select[id^="color"]');
                     const descriptionInput = row.querySelector('input[type="text"]');
 
-                    // Ensure all necessary elements are present
                     if (!numberInput || !materialSelect || !colorSelect || !descriptionInput) {
                         console.error("Error finding inputs in row:", row);
                         return;
                     }
 
                     const number = numberInput.value;
-                    const material = materialSelect.value; // Get value from select for 'Chất liệu'
-                    const color = colorSelect.value; // Get value from select for 'Màu sắc'
-                    const description = descriptionInput.value; // Text input for 'Thông tin mô tả'
+                    const material = materialSelect.value;
+                    const color = colorSelect.value;
+                    const description = descriptionInput.value;
 
-                    // New order: 'Số thứ tự', 'Chất liệu', 'Màu sắc', 'Screen Number', 'Location', 'Thông tin mô tả'
-                    const rowData = [number, material, color, screenNumber, '', description]; // Leave Location empty for now
+                    const rowData = [number, material, color, screenNumber, '', description];
                     console.log("Adding row to Annotations sheet:", rowData);
                     const excelRow = worksheet.getRow(currentRow);
                     excelRow.values = rowData;
 
-                    // Set border for each cell in the row, except the Location column
                     excelRow.eachCell((cell, colNumber) => {
-                        if (colNumber !== 5) { // Skip column F (Location)
+                        if (colNumber !== 5) {
                             cell.border = {
                                 top: { style: 'thin' },
                                 left: { style: 'thin' },
@@ -1812,50 +1794,45 @@ function exportToExcel() {
                         }
                     });
 
-                    // Set row height for the data rows
-                    excelRow.height = 40; // Adjust the row height as needed
-
+                    excelRow.height = 40;
                     currentRow++;
                 } catch (error) {
                     console.error("Error processing row:", row, error);
                 }
             });
 
-            // Merge cells in the 'Screen Number' column for all rows of the same screen
             if (currentRow - startRow > 1) {
-                worksheet.mergeCells(`D${startRow}:D${currentRow - 1}`); // Merge cells for the same screen number
+                worksheet.mergeCells(`D${startRow}:D${currentRow - 1}`);
             }
-
-            // Apply blue color to the 'Screen Number' column
             worksheet.getCell(`D${startRow}`).font = { color: { argb: '0000FF' }, bold: true };
+            worksheet.mergeCells(`E${startRow}:E${currentRow - 1}`);
 
-            // Merge cells in the 'Location' column to create a single cell for the image
-            const totalRows = currentRow - 1; // Total number of rows occupied by the table
-            worksheet.mergeCells(`E${startRow}:E${totalRows}`); // Merge cells from E<first row> to E<totalRows>
-
-            // Add canvas image to Excel in the merged cell
             const canvasImage = canvasElement.toDataURL('image/png').replace(/^data:image\/png;base64,/, '');
             const imageId = workbook.addImage({
                 base64: canvasImage,
                 extension: 'png',
             });
 
-            // Calculate the number of rows the table occupies and add the image to start from the first row of this screen
-            const totalHeight = (totalRows - startRow + 1) * 40; // Adjust image height based on the number of rows
-            const totalWidth = 16 / 9 * totalHeight; // Adjust image width as needed
+            const totalHeight = (currentRow - startRow) * 40;
+            const totalWidth = 16 / 9 * totalHeight;
 
-            // Set the width of column E to fit the image
-            worksheet.getColumn(5).width = totalWidth / 7; // Adjust this value as needed
+            // Dynamically adjust the column width based on the largest canvas
+            const canvasWidthInPoints = totalWidth / 7; // Adjust this conversion factor as needed
+            if (canvasWidthInPoints > maxCanvasWidth) {
+                maxCanvasWidth = canvasWidthInPoints;
+            }
 
-            // Add the image to the merged cell (E<first row>:E<totalRows>)
             worksheet.addImage(imageId, {
-                tl: { col: 4, row: startRow }, // Start at the top left of the merged cell E<first row>
-                ext: { width: totalWidth, height: totalHeight } // Adjust dimensions based on the table size
+                tl: { col: 4, row: startRow },
+                ext: { width: totalWidth, height: totalHeight }
             });
 
             console.log(`Adding canvas image for screen ${screenIndex + 1} to Excel`);
         });
     });
+
+    // Set column width for 'Location' (column E)
+    worksheet.getColumn(5).width = maxCanvasWidth; // Use the maximum canvas width for column width
 
     console.log(`Saving workbook as ${filename}.xlsx...`);
     workbook.xlsx.writeBuffer().then(buffer => {
