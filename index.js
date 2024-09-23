@@ -1738,14 +1738,14 @@ function exportToExcel() {
         };
     });
 
-    worksheet.getColumn(1).width = 15;
-    worksheet.getColumn(2).width = 30;
-    worksheet.getColumn(3).width = 30;
-    worksheet.getColumn(4).width = 20;
+    worksheet.getColumn(1).width = 60;
+    worksheet.getColumn(2).width = 120;
+    worksheet.getColumn(3).width = 120;
+    worksheet.getColumn(4).width = 80;
 
     const screens = document.querySelectorAll('.screen');
     let currentRow = 5;
-    let maxCanvasWidth = 50; // Initialize the minimum column width
+    let maxCanvasWidth = 200; // Initialize the minimum column width
 
     screens.forEach((screen, screenIndex) => {
         const screenNumber = `No. ${screenIndex + 1}`;
