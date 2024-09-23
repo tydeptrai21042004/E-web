@@ -1721,7 +1721,7 @@ function exportToExcel() {
     worksheet.mergeCells('A1:F1');
 
     const headerRow = worksheet.getRow(4);
-    headerRow.values = ['Số thứ tự', 'Chất liệu', 'Màu sắc', 'Screen Number', 'Location', 'Thông tin mô tả'];
+    headerRow.values = ['No.', 'Material', 'Color', 'remask', 'Location', 'Description'];
     headerRow.font = { bold: true };
 
     headerRow.eachCell((cell, colNumber) => {
