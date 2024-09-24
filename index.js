@@ -177,7 +177,7 @@ function handleCanvasDragging() {
             var deltaY = (pointer.y - canvas.lastPosY) / zoomLevel;
 
             // Add a sensitivity factor to slow down the dragging
-            var sensitivityFactor = 0.5; // Adjust this value as needed
+            var sensitivityFactor = 0.2; // Adjust this value as needed
             canvas.relativePan(new fabric.Point(deltaX * sensitivityFactor, deltaY * sensitivityFactor));
             
             canvas.lastPosX = pointer.x;
@@ -1724,7 +1724,7 @@ function exportToExcel() {
     worksheet.mergeCells('A1:F1');
 
     const headerRow = worksheet.getRow(4);
-    headerRow.values = ['No.', 'Material', 'Color', 'Screen', 'Location', 'Description'];
+    headerRow.values = ['No.', 'Material', 'Color', 'Re mask', 'Location', 'Description'];
     headerRow.font = { bold: true };
 
     headerRow.eachCell((cell, colNumber) => {
@@ -1749,47 +1749,50 @@ function exportToExcel() {
     const screens = document.querySelectorAll('.screen');
     let currentRow = 5;
     let maxCanvasWidth = 200; // Initialize the minimum column width
-
+    
     screens.forEach((screen, screenIndex) => {
-        const screenNumber = `Screen ${screenIndex + 1}`;
+        const screenNumber = `No. ${screenIndex + 1}`;
         const canvases = screen.querySelectorAll('#imageCanvas');
-
+    
         canvases.forEach((canvasElement) => {
             let fabricCanvas = canvasElement.fabricCanvas;
             if (!fabricCanvas) {
                 fabricCanvas = new fabric.Canvas(canvasElement);
                 canvasElement.fabricCanvas = fabricCanvas;
             }
-
+    
             const rows = screen.querySelectorAll('.annotationTable tbody tr');
             const startRow = currentRow;
-
+    
             rows.forEach(row => {
                 try {
                     const numberInput = row.querySelector('input[type="number"]');
                     const materialSelect = row.querySelector('select[id^="material"]');
                     const colorSelect = row.querySelector('select[id^="color"]');
                     const descriptionInput = row.querySelector('input[type="text"]');
-
+    
                     if (!numberInput || !materialSelect || !colorSelect || !descriptionInput) {
                         console.error("Error finding inputs in row:", row);
                         return;
                     }
-
+    
                     const number = numberInput.value;
-
+    
                     // Get multiple selected values for material and color
                     const selectedMaterials = Array.from(materialSelect.selectedOptions).map(option => option.value).join('/');
                     const selectedColors = Array.from(colorSelect.selectedOptions).map(option => option.value).join('/');
-
+    
                     const description = descriptionInput.value;
-
+    
                     const rowData = [number, selectedMaterials, selectedColors, screenNumber, '', description];
                     console.log("Adding row to Annotations sheet:", rowData);
                     const excelRow = worksheet.getRow(currentRow);
                     excelRow.values = rowData;
-
+    
                     excelRow.eachCell((cell, colNumber) => {
+                        if (colNumber === 6) { // Column 6 is the description column
+                            cell.font = { color: { argb: '0000FF' }, bold: false }; // Set the description to blue
+                        }
                         if (colNumber !== 5) {
                             cell.border = {
                                 top: { style: 'thin' },
@@ -1799,47 +1802,59 @@ function exportToExcel() {
                             };
                         }
                     });
-
-                    excelRow.height = 40;
+    
+                    excelRow.height = 80;
                     currentRow++;
                 } catch (error) {
                     console.error("Error processing row:", row, error);
                 }
             });
-
+    
             if (currentRow - startRow > 1) {
                 worksheet.mergeCells(`D${startRow}:D${currentRow - 1}`);
             }
             worksheet.getCell(`D${startRow}`).font = { color: { argb: '0000FF' }, bold: true };
             worksheet.mergeCells(`E${startRow}:E${currentRow - 1}`);
+    
 
-            const canvasImage = canvasElement.toDataURL('image/png').replace(/^data:image\/png;base64,/, '');
-            const imageId = workbook.addImage({
-                base64: canvasImage,
-                extension: 'png',
-            });
+    
+            const originalWidth = canvasElement.width;   // Actual canvas width
+            const originalHeight = canvasElement.height; // Actual canvas height
+        // Calculate the new height and width based on the size of the cell or any larger desired size
+        const aspectRatio = originalWidth / originalHeight;  // Calculate the aspect ratio based on the real dimensions
 
-            const totalHeight = (currentRow - startRow) * 40;
-            const totalWidth = 16 / 9 * totalHeight;
-
+        const totalHeight = (currentRow - startRow) * 80;  // Adjust this for the row height in the Excel sheet
+        let totalWidth = aspectRatio * totalHeight;         // Calculate width based on the aspect ratio
+    
+        // Ensure the image is resized larger but still maintains aspect ratio
+        if (totalWidth < totalHeight) {
+            totalWidth = totalHeight;                       // Increase width if too small, but keep the ratio
+        }
             // Dynamically adjust the column width based on the largest canvas
             const canvasWidthInPoints = totalWidth / 7; // Adjust this conversion factor as needed
             if (canvasWidthInPoints > maxCanvasWidth) {
                 maxCanvasWidth = canvasWidthInPoints;
             }
-
+            const canvasImage = canvasElement.toDataURL('image/png').replace(/^data:image\/png;base64,/, '');
+            const imageId = workbook.addImage({
+                base64: canvasImage,
+                extension: 'png',
+            });
             worksheet.addImage(imageId, {
-                tl: { col: 4, row: startRow },
+                tl: { col: 4, row: startRow - 1 },
                 ext: { width: totalWidth, height: totalHeight }
             });
-
+    
             console.log(`Adding canvas image for screen ${screenIndex + 1} to Excel`);
+    
+            // Add two empty rows after the canvas
+            //currentRow += 2;
         });
     });
-
+    
     // Set column width for 'Location' (column E)
     worksheet.getColumn(5).width = maxCanvasWidth; // Use the maximum canvas width for column width
-
+    
     console.log(`Saving workbook as ${filename}.xlsx...`);
     workbook.xlsx.writeBuffer().then(buffer => {
         const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
