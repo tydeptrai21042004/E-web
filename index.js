@@ -890,7 +890,7 @@ function updateMousePosition(o) {
     var pointer = canvas.getPointer(o.e);
     lastMousePosition.x = pointer.x;
     lastMousePosition.y = pointer.y;
-    console.log("Mouse Position:", lastMousePosition.y, lastMousePosition.x);
+   // console.log("Mouse Position:", lastMousePosition.y, lastMousePosition.x);
     isCreatingArrow = true; 
 }
 
@@ -940,12 +940,18 @@ function createArrowAtMouse() {
             var zoomLevel = canvas.getZoom();
 
             // Adjust the positions based on zoom level to ensure size changes
-            var startX = lastMousePosition.x;
-            var startY = lastMousePosition.y;
-            var endX = startX + 100 / zoomLevel;  // Extend the length of the arrow
-            var endY = startY;
+            // The head of the arrow is at the current mouse position
+            var endX = lastMousePosition.x;
+            var endY = lastMousePosition.y;
 
-            // Create the arrow line and its head
+            // Calculate the start of the arrow based on a 45-degree angle and extend it backwards
+            var angle = Math.PI / 4;  // 45 degrees in radians
+            var length = 100 / zoomLevel;  // Length of the arrow
+
+            var startX = endX - length * Math.cos(angle);  // Extend arrow start backward from head
+            var startY = endY - length * Math.sin(angle);
+
+            // Create the arrow line
             var arrow = new fabric.Line([startX, startY, endX, endY], {
                 strokeWidth: 2 / zoomLevel,  // Adjust for zoom level
                 fill: 'red',
@@ -954,9 +960,9 @@ function createArrowAtMouse() {
                 evented: false
             });
 
-            var angle = Math.atan2(endY - startY, endX - startX);
             var headLength = 10 / zoomLevel;  // Adjust arrowhead size for zoom
 
+            // Arrowhead lines
             var arrowHead1 = new fabric.Line([
                 endX,
                 endY,
@@ -1588,59 +1594,65 @@ function addNumberLabel(number, obj) {
     }
 
     // Calculate the position relative to the object
-    var labelLeft = obj.left - 70;
-    var labelTop = obj.top - 5; // Adjust as needed
+    var labelLeft = obj.left - 60;
+    var labelTop = obj.top - 20; // Adjust as needed
 
     var text = new fabric.Text(String(number), {
         left: labelLeft,
         top: labelTop,
         fontSize: getScaledFontSize(), // Set scaled font size
         fill: 'black', // Set text color to black
-        selectable: false,
-        evented: false
+        selectable: true, // Allow the label to be selected and moved
+        evented: true // Enable interaction with the text object
     });
 
-    obj.text = text;
+    // Store reference to the text label in the object
+    obj.textLabel = text;
     canvas.add(text);
     canvas.bringToFront(text);
-    // Optionally, bring the object to the front as well
     canvas.bringToFront(obj);
     canvas.renderAll();
 
-    // Function to update the position and font size of the label text
+    // Function to update the label text position and font size
     function updateNumberLabelPosition(obj) {
-        if (!obj || !obj.text) return;
+        if (!obj || !obj.textLabel) return; // Ensure textLabel exists
 
-        // Calculate the new position of the label
-        var labelLeft = obj.left - 70;
-        var labelTop = obj.top - 5; // Adjust as needed
+        // Calculate the new position for the label
+        var labelLeft = obj.left - 60;
+        var labelTop = obj.top - 20;
 
-        // Update the position and font size of the label text
-        obj.text.set({
+        // Update the label's position and font size
+        obj.textLabel.set({
             left: labelLeft,
             top: labelTop,
-            fontSize: getScaledFontSize() // Update font size based on zoom level
+            fontSize: getScaledFontSize() // Adjust font size based on zoom
         });
 
-        // Ensure the canvas updates the changes
+        // Re-render the canvas
         canvas.renderAll();
     }
 
-    // Event listener to update label positions when an object is modified
-    canvas.on('object:modified', function(e) {
+    // Listen for object modification and update label position accordingly
+    canvas.on('object:modified', function (e) {
         var modifiedObj = e.target;
 
-        // Check if the object has a label text associated with it
-        if (modifiedObj && modifiedObj.text) {
+        // If the modified object has a text label, update its position
+        if (modifiedObj && modifiedObj.textLabel) {
             updateNumberLabelPosition(modifiedObj);
         }
     });
 
-    // Event listener to update label font size when zoom level changes
-    canvas.on('zoom', function() {
-        if (obj && obj.text) {
+    // Update label font size and position when zoom changes
+    canvas.on('zoom', function () {
+        if (obj && obj.textLabel) {
             updateNumberLabelPosition(obj);
         }
+    });
+
+    // Optional: Allow the user to move the label independently
+    text.on('moving', function () {
+        // Keep the label's position updated when it's moved
+        canvas.renderAll();
     });
 }
 
@@ -1712,8 +1724,15 @@ function exportToExcel() {
     const filenameInput = document.getElementById('excelFilename');
     let filename = filenameInput.value.trim();
     if (!filename) {
-        filename = 'annotations';
+        const userConfirmed = confirm("No filename provided. Would you like to use 'annotations' as the default filename?");
+        if (userConfirmed) {
+            filename = 'annotations';
+        } else {
+            alert("Please provide a filename.");
+            return; // Exit the function if the user does not agree
+        }
     }
+    
 
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Annotations and Canvas');
@@ -1721,6 +1740,8 @@ function exportToExcel() {
     const titleRow = worksheet.getRow(1);
     titleRow.values = [filename];
     titleRow.font = { bold: true, size: 14 };
+    titleRow.alignment = { horizontal: 'center' };
+
     worksheet.mergeCells('A1:F1');
 
     const headerRow = worksheet.getRow(4);
