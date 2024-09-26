@@ -1475,6 +1475,17 @@ function addAnnotationRow(number) {
 
     cell4.innerHTML = `<input type="text" id="description${number}" value="" onchange="updateAnnotationDescription(${number}, this.value)">`;
 
+    // Initialize Select2 on the newly created <select> elements
+    $('#material' + number).select2({
+        placeholder: "Select materials",
+        width: '100%' // Ensures full width in the cell
+    });
+    
+    $('#color' + number).select2({
+        placeholder: "Select colors",
+        width: '100%' // Ensures full width in the cell
+    });
+
     sortTable(); // Sort the table after adding a new row
 }
 
