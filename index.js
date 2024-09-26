@@ -1482,6 +1482,7 @@ function addAnnotationRow(number) {
 
 // Function to delete a row from the annotation table
 function deleteAnnotationRow(number) {
+  //  console.log("deleteAnnotationRow");
     var table = document.querySelector('.screen.active #annotationTable').getElementsByTagName('tbody')[0];
     for (var i = 0, row; row = table?.rows[i]; i++) {
         if (parseInt(row.cells[0].getElementsByTagName('input')[0].value) === number) {
@@ -1494,40 +1495,68 @@ function deleteAnnotationRow(number) {
 function updateAnnotationNumber(oldNumber, newNumber) {
     canvas.discardActiveObject();
     
-    // Convert newNumber to integer
+    // Convert newNumber to an integer
     newNumber = parseInt(newNumber);
 
-    // Check if newNumber already exists
+    // If newNumber is invalid, stop execution
+    if (isNaN(newNumber)) {
+        alert("Invalid number. Please enter a valid integer.");
+        return;
+    }
+
+    // Check if the new number already exists in annotationMap
     if (newNumber in annotationMap) {
         alert("Number already exists.");
-        // Revert back to old number if new number already exists
+        // Revert the table row number back to the old number if conflict occurs
         updateTableRowNumber(newNumber, oldNumber);
-        // Sort the table again after reverting
         sortTable();
         return;
     }
-    
-    // Get the annotation object associated with oldNumber
+
+    // Get the annotation object associated with the old number
     var annotation = annotationMap[oldNumber];
-    // If annotation exists, update annotationMap and associated properties
+    
+    // Log the annotation and oldNumber for debugging
+    console.log(`Updating annotation from ${oldNumber} to ${newNumber}`);
+    console.log('Annotation:', annotation);
+
+    // Ensure the annotation exists before proceeding
     if (annotation) {
+        // Update the annotationMap with the new number
         annotationMap[newNumber] = annotation;
         delete annotationMap[oldNumber];
-        // Update text on the canvas object
-        var text = annotation.text;
-        text.set({ text: String(newNumber) });
-        canvas.renderAll();
+
+        // Access the textLabel property of the annotation
+        var textLabel = annotation.textLabel; // Updated property
+
+        // Check if textLabel is defined
+        if (textLabel) {
+            // Update the text label on the canvas object
+            textLabel.set({ text: String(newNumber) }); // Use textLabel instead of text
+            canvas.renderAll();
+        } else {
+            console.warn(`No textLabel property found for annotation with number ${oldNumber}.`);
+        }
+    } else {
+        console.warn(`No annotation found for the number ${oldNumber}.`);
+        return;
     }
-    // Update the table row number and sort the table
+
+    // Update the table row number from oldNumber to newNumber
     updateTableRowNumber(oldNumber, newNumber);
     sortTable();
-    // Update the onchange attribute to reflect the new number
+
+    // Update the `onchange` event handler and the input element's ID to the new number
     var inputElement = document.getElementById('annotationInput' + oldNumber);
     if (inputElement) {
         inputElement.setAttribute('onchange', `updateAnnotationNumber(${newNumber}, this.value)`);
-        inputElement.id = 'annotationInput' + newNumber; // Update the ID as well
+        inputElement.id = 'annotationInput' + newNumber; // Update the input element ID
+    } else {
+        console.warn(`Input element not found for old number ${oldNumber}.`);
     }
 }
+
+
 var backgroundImage = null;
 var isBackgroundSet = false;
 // Function to toggle background image
@@ -1556,6 +1585,7 @@ function toggleBackground() {
     }
     canvas.renderAll();
 }
+
 // Function to update annotation number in table row
 function updateTableRowNumber(oldNumber, newNumber) {
     var table = document.querySelector('.screen.active #annotationTable').getElementsByTagName('tbody')[0];
@@ -1575,6 +1605,7 @@ function sortTable() {
 }
 // Function to add number label associated with an annotation object
 // Assuming this code is executed after the canvas is properly initialized
+
 function addNumberLabel(number, obj) {
     if (number === null || !obj) return;
 
@@ -1606,8 +1637,9 @@ function addNumberLabel(number, obj) {
         evented: true // Enable interaction with the text object
     });
 
-    // Store reference to the text label in the object
+    // Store reference to the text label and number in the object
     obj.textLabel = text;
+    obj.number = number; // Store the number in the object for easy access
     canvas.add(text);
     canvas.bringToFront(text);
     canvas.bringToFront(obj);
@@ -1654,6 +1686,41 @@ function addNumberLabel(number, obj) {
         // Keep the label's position updated when it's moved
         canvas.renderAll();
     });
+
+    // Listen for object removal and trigger the removal of both label and row
+    canvas.on('object:removed', function (e) {
+        var removedObj = e.target;
+
+        // Call the new function to remove both the label and the table row
+        if (removedObj && removedObj.number !== undefined) {
+            removeLabelAndRow(removedObj.number);
+        }
+    });
+}
+
+// New function to remove the label from canvas and the corresponding row from the table
+function removeLabelAndRow(number) {
+    const canvas = window.canvas;
+
+    // Find and remove the text label from the canvas
+    const objects = canvas.getObjects();
+    const textObject = objects.find(obj => obj.text === String(number));
+
+    if (textObject) {
+        canvas.remove(textObject);
+    }
+
+    // Find and remove the row in the table that matches the number
+    var table = document.querySelector('.screen.active #annotationTable').getElementsByTagName('tbody')[0];
+    for (var i = 0, row; row = table?.rows[i]; i++) {
+        if (parseInt(row.cells[0].getElementsByTagName('input')[0].value) === number) {
+            table?.deleteRow(i);
+            break;
+        }
+    }
+
+    // Re-render the canvas after removal
+    canvas.renderAll();
 }
 
 
@@ -1716,32 +1783,47 @@ canvas?.on('object:added', saveState);
 canvas?.on('object:modified', saveState);
 canvas?.on('object:removed', saveState);
 const exportExcelButton = document.getElementById('exportExcel');
-exportExcelButton.addEventListener('click', exportToExcel);
+exportExcelButton.addEventListener('click', async () => {
+    try {
+        await exportToExcel();
+    } catch (error) {
+        console.error("Error exporting to Excel:", error);
+    }
+});
 
-function exportToExcel() {
+async function exportToExcel() {
     console.log("Starting export to Excel...");
-
+    
     const filenameInput = document.getElementById('excelFilename');
     let filename = filenameInput.value.trim();
-    if (!filename) {
-        const userConfirmed = confirm("No filename provided. Would you like to use 'annotations' as the default filename?");
-        if (userConfirmed) {
-            filename = 'annotations';
+
+    // Case 1: Filename provided - create a new file
+    if (filename) {
+        await createNewExcelFile(filename);
+    } 
+    // Case 2: No filename provided - ask the user if they want to append or create a new file
+    else {
+        const userChoice = confirm("No filename provided. Do you want to append to an existing file (OK) or create a new file (Cancel)?");
+        if (userChoice) {
+            // If user chooses to append, open file picker to select an existing file
+            await appendToExistingExcel();
         } else {
-            alert("Please provide a filename.");
-            return; // Exit the function if the user does not agree
+            // Otherwise, create a new file with a default name
+            filename = 'annotations';
+            await createNewExcelFile(filename);
         }
     }
-    
+}
 
+// Create a new Excel file
+async function createNewExcelFile(filename) {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Annotations and Canvas');
-
+    
     const titleRow = worksheet.getRow(1);
     titleRow.values = [filename];
     titleRow.font = { bold: true, size: 14 };
     titleRow.alignment = { horizontal: 'center' };
-
     worksheet.mergeCells('A1:F1');
 
     const headerRow = worksheet.getRow(4);
@@ -1767,116 +1849,43 @@ function exportToExcel() {
     worksheet.getColumn(3).width = 30;
     worksheet.getColumn(4).width = 80;
 
-    const screens = document.querySelectorAll('.screen');
-    let currentRow = 5;
-    let maxCanvasWidth = 200; // Initialize the minimum column width
-    
-    screens.forEach((screen, screenIndex) => {
-        const screenNumber = `No. ${screenIndex + 1}`;
-        const canvases = screen.querySelectorAll('#imageCanvas');
-    
-        canvases.forEach((canvasElement) => {
-            let fabricCanvas = canvasElement.fabricCanvas;
-            if (!fabricCanvas) {
-                fabricCanvas = new fabric.Canvas(canvasElement);
-                canvasElement.fabricCanvas = fabricCanvas;
-            }
-    
-            const rows = screen.querySelectorAll('.annotationTable tbody tr');
-            const startRow = currentRow;
-    
-            rows.forEach(row => {
-                try {
-                    const numberInput = row.querySelector('input[type="number"]');
-                    const materialSelect = row.querySelector('select[id^="material"]');
-                    const colorSelect = row.querySelector('select[id^="color"]');
-                    const descriptionInput = row.querySelector('input[type="text"]');
-    
-                    if (!numberInput || !materialSelect || !colorSelect || !descriptionInput) {
-                        console.error("Error finding inputs in row:", row);
-                        return;
-                    }
-    
-                    const number = numberInput.value;
-    
-                    // Get multiple selected values for material and color
-                    const selectedMaterials = Array.from(materialSelect.selectedOptions).map(option => option.value).join('/');
-                    const selectedColors = Array.from(colorSelect.selectedOptions).map(option => option.value).join('/');
-    
-                    const description = descriptionInput.value;
-    
-                    const rowData = [number, selectedMaterials, selectedColors, screenNumber, '', description];
-                    console.log("Adding row to Annotations sheet:", rowData);
-                    const excelRow = worksheet.getRow(currentRow);
-                    excelRow.values = rowData;
-    
-                    excelRow.eachCell((cell, colNumber) => {
-                        if (colNumber === 6) { // Column 6 is the description column
-                            cell.font = { color: { argb: '0000FF' }, bold: false }; // Set the description to blue
-                        }
-                        if (colNumber !== 5) {
-                            cell.border = {
-                                top: { style: 'thin' },
-                                left: { style: 'thin' },
-                                bottom: { style: 'thin' },
-                                right: { style: 'thin' }
-                            };
-                        }
-                    });
-    
-                    excelRow.height = 80;
-                    currentRow++;
-                } catch (error) {
-                    console.error("Error processing row:", row, error);
+    appendDataToWorksheet(workbook);
+
+    console.log(`Saving new workbook as ${filename}.xlsx...`);
+    await saveWorkbookAsFile(workbook, filename);
+}
+
+// Append data to an existing Excel file
+async function appendToExistingExcel() {
+    try {
+        // Open file picker to select the existing Excel file
+        const [fileHandle] = await window.showOpenFilePicker({
+            types: [{
+                description: 'Excel Files',
+                accept: {
+                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']
                 }
-            });
-    
-            if (currentRow - startRow > 1) {
-                worksheet.mergeCells(`D${startRow}:D${currentRow - 1}`);
-            }
-            worksheet.getCell(`D${startRow}`).font = { color: { argb: '0000FF' }, bold: true };
-            worksheet.mergeCells(`E${startRow}:E${currentRow - 1}`);
-    
-
-    
-            const originalWidth = canvasElement.width;   // Actual canvas width
-            const originalHeight = canvasElement.height; // Actual canvas height
-        // Calculate the new height and width based on the size of the cell or any larger desired size
-        const aspectRatio = originalWidth / originalHeight;  // Calculate the aspect ratio based on the real dimensions
-
-        const totalHeight = (currentRow - startRow) * 80;  // Adjust this for the row height in the Excel sheet
-        let totalWidth = aspectRatio * totalHeight;         // Calculate width based on the aspect ratio
-    
-        // Ensure the image is resized larger but still maintains aspect ratio
-        if (totalWidth < totalHeight) {
-            totalWidth = totalHeight;                       // Increase width if too small, but keep the ratio
-        }
-            // Dynamically adjust the column width based on the largest canvas
-            const canvasWidthInPoints = totalWidth / 7; // Adjust this conversion factor as needed
-            if (canvasWidthInPoints > maxCanvasWidth) {
-                maxCanvasWidth = canvasWidthInPoints;
-            }
-            const canvasImage = canvasElement.toDataURL('image/png').replace(/^data:image\/png;base64,/, '');
-            const imageId = workbook.addImage({
-                base64: canvasImage,
-                extension: 'png',
-            });
-            worksheet.addImage(imageId, {
-                tl: { col: 4, row: startRow - 1 },
-                ext: { width: totalWidth, height: totalHeight }
-            });
-    
-            console.log(`Adding canvas image for screen ${screenIndex + 1} to Excel`);
-    
-            // Add two empty rows after the canvas
-            //currentRow += 2;
+            }]
         });
-    });
-    
-    // Set column width for 'Location' (column E)
-    worksheet.getColumn(5).width = maxCanvasWidth; // Use the maximum canvas width for column width
-    
-    console.log(`Saving workbook as ${filename}.xlsx...`);
+
+        const fileData = await fileHandle.getFile();
+        const arrayBuffer = await fileData.arrayBuffer();
+        
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(arrayBuffer); // Load the existing workbook
+
+        appendDataToWorksheet(workbook);
+
+        const filename = fileHandle.name.replace('.xlsx', '');
+        console.log(`Appending to workbook: ${filename}.xlsx`);
+        await saveWorkbookAsFile(workbook, filename);
+    } catch (error) {
+        console.error("Error opening file:", error);
+    }
+}
+
+// Save the workbook to a file
+async function saveWorkbookAsFile(workbook, filename) {
     workbook.xlsx.writeBuffer().then(buffer => {
         const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
         const url = URL.createObjectURL(blob);
@@ -1890,3 +1899,104 @@ function exportToExcel() {
     });
 }
 
+function appendDataToWorksheet(workbook) {
+    const worksheet = workbook.getWorksheet('Annotations and Canvas') || workbook.addWorksheet('Annotations and Canvas');
+
+    const screens = document.querySelectorAll('.screen');
+    let currentRow = worksheet.lastRow ? worksheet.lastRow.number + 1 : 5;
+    let maxCanvasWidth = 200;
+
+    screens.forEach((screen, screenIndex) => {
+        const screenNumber = `No. ${screenIndex + 1}`;
+        const canvases = screen.querySelectorAll('#imageCanvas');
+    
+        canvases.forEach((canvasElement) => {
+            let fabricCanvas = canvasElement.fabricCanvas;
+            if (!fabricCanvas) {
+                fabricCanvas = new fabric.Canvas(canvasElement);
+                canvasElement.fabricCanvas = fabricCanvas;
+            }
+
+            const rows = screen.querySelectorAll('.annotationTable tbody tr');
+            const startRow = currentRow;
+    
+            rows.forEach(row => {
+                try {
+                    const numberInput = row.querySelector('input[type="number"]');
+                    const materialSelect = row.querySelector('select[id^="material"]');
+                    const colorSelect = row.querySelector('select[id^="color"]');
+                    const descriptionInput = row.querySelector('input[type="text"]');
+
+                    if (!numberInput || !materialSelect || !colorSelect || !descriptionInput) {
+                        console.error("Error finding inputs in row:", row);
+                        return;
+                    }
+
+                    const number = numberInput.value;
+                    const selectedMaterials = Array.from(materialSelect.selectedOptions).map(option => option.value).join('/');
+                    const selectedColors = Array.from(colorSelect.selectedOptions).map(option => option.value).join('/');
+                    const description = descriptionInput.value;
+
+                    const rowData = [number, selectedMaterials, selectedColors, screenNumber, '', description];
+                    console.log("Adding row to Annotations sheet:", rowData);
+                    const excelRow = worksheet.getRow(currentRow);
+                    excelRow.values = rowData;
+
+                    excelRow.eachCell((cell, colNumber) => {
+                        if (colNumber === 6) { // Description column
+                            cell.font = { color: { argb: '0000FF' }, bold: false };
+                        }
+                        if (colNumber !== 5) {
+                            cell.border = {
+                                top: { style: 'thin' },
+                                left: { style: 'thin' },
+                                bottom: { style: 'thin' },
+                                right: { style: 'thin' }
+                            };
+                        }
+                    });
+
+                    excelRow.height = 80;
+                    currentRow++;
+                } catch (error) {
+                    console.error("Error processing row:", row, error);
+                }
+            });
+
+            if (currentRow - startRow > 1) {
+                worksheet.mergeCells(`D${startRow}:D${currentRow - 1}`);
+            }
+            worksheet.getCell(`D${startRow}`).font = { color: { argb: '0000FF' }, bold: true };
+            worksheet.mergeCells(`E${startRow}:E${currentRow - 1}`);
+
+            const originalWidth = canvasElement.width;
+            const originalHeight = canvasElement.height;
+            const aspectRatio = originalWidth / originalHeight;
+            const totalHeight = (currentRow - startRow) * 80;
+            let totalWidth = aspectRatio * totalHeight;
+
+            if (totalWidth < totalHeight) {
+                totalWidth = totalHeight;
+            }
+
+            const canvasWidthInPoints = totalWidth / 7;
+            if (canvasWidthInPoints > maxCanvasWidth) {
+                maxCanvasWidth = canvasWidthInPoints;
+            }
+
+            const canvasImage = canvasElement.toDataURL('image/png').replace(/^data:image\/png;base64,/, '');
+            const imageId = workbook.addImage({
+                base64: canvasImage,
+                extension: 'png',
+            });
+            worksheet.addImage(imageId, {
+                tl: { col: 4, row: startRow - 1 },
+                ext: { width: totalWidth, height: totalHeight }
+            });
+
+            console.log(`Adding canvas image for screen ${screenIndex + 1} to Excel`);
+        });
+    });
+
+    worksheet.getColumn(5).width = maxCanvasWidth;
+}
