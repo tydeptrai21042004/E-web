@@ -113,10 +113,7 @@ var drawingMode = null;  // Track the current drawing mode
 var customShape = { path: [] };  // Store custom shape path
 var deletedImageUrls = new Set();
 var isDrawing = false;
-function toggleCanvasDragging() {
-    canvasDraggingEnabled = !canvasDraggingEnabled;
-    console.log(`Canvas dragging ${canvasDraggingEnabled ? 'enabled' : 'disabled'}`);
-}
+
 canvas?.on('mouse:down', function(o) {
     images.forEach(function(img) {
         img.sendToBack();
@@ -153,58 +150,68 @@ function setDrawingMode(mode) {
     console.log(`Drawing mode set to: ${mode}`);
     resetCanvasListeners();
 }
+// Function to handle dragging
 function handleCanvasDragging() {
-    if (!canvasDraggingEnabled) return;
+    if (canvasDraggingEnabled) {
+        // Enable dragging by adding event listeners
 
-    canvas.on('mouse:down', function(o) {
-        var pointer = canvas.getPointer(o.e);
-        if (!canvas.findTarget(o.e)) {
-            canvas.isDragging = true;
-            canvas.selection = false; // Disable object selection temporarily
-            canvas.lastPosX = pointer.x;
-            canvas.lastPosY = pointer.y;
-        }
-    });
-
-    // Event listener for mouse move on the canvas
-    canvas.on('mouse:move', function(o) {
-        if (canvas.isDragging) {
+        canvas.on('mouse:down', function(o) {
             var pointer = canvas.getPointer(o.e);
-            // Get the zoom level
-            var zoomLevel = canvas.getZoom();
-            // Adjust delta based on the zoom level
-            var deltaX = (pointer.x - canvas.lastPosX) / zoomLevel;
-            var deltaY = (pointer.y - canvas.lastPosY) / zoomLevel;
+            if (!canvas.findTarget(o.e)) {
+                canvas.isDragging = true;
+                canvas.selection = false; // Disable object selection temporarily
+                canvas.lastPosX = pointer.x;
+                canvas.lastPosY = pointer.y;
+            }
+        });
 
-            // Add a sensitivity factor to slow down the dragging
-            var sensitivityFactor = 0.2; // Adjust this value as needed
-            canvas.relativePan(new fabric.Point(deltaX * sensitivityFactor, deltaY * sensitivityFactor));
-            
-            canvas.lastPosX = pointer.x;
-            canvas.lastPosY = pointer.y;
-        }
-    });
+        canvas.on('mouse:move', function(o) {
+            if (canvas.isDragging) {
+                var pointer = canvas.getPointer(o.e);
+                var zoomLevel = canvas.getZoom();
+                var deltaX = (pointer.x - canvas.lastPosX) / zoomLevel;
+                var deltaY = (pointer.y - canvas.lastPosY) / zoomLevel;
+                var sensitivityFactor = 0.2;
+                canvas.relativePan(new fabric.Point(deltaX * sensitivityFactor, deltaY * sensitivityFactor));
 
-    // Event listener for mouse up on the canvas
-    canvas.on('mouse:up', function(o) {
+                canvas.lastPosX = pointer.x;
+                canvas.lastPosY = pointer.y;
+            }
+        });
+
+        canvas.on('mouse:up', function(o) {
+            canvas.isDragging = false;
+            canvas.selection = true; // Re-enable object selection
+        });
+
+    } else {
+        // Disable dragging by removing event listeners
+        canvas.off('mouse:down');
+        canvas.off('mouse:move');
+        canvas.off('mouse:up');
         canvas.isDragging = false;
-        canvas.selection = true; // Re-enable object selection
-    });
+    }
 }
 
+// Function to toggle dragging state
+function toggleCanvasDragging() {
+    canvasDraggingEnabled = !canvasDraggingEnabled;
+    console.log(`Canvas dragging ${canvasDraggingEnabled ? 'enabled' : 'disabled'}`);
+    handleCanvasDragging(); // Update event listeners based on the new state
+}
 
+// Function to reset and toggle canvas dragging
+function moveblankcanvas() {
+    toggleCanvasDragging(); // This toggles the dragging state (enables/disables)
+}
 
-// Toggle dragging on and off with a keyboard shortcut (e.g., 'd' key)
+// Optional: Keyboard shortcut for toggling canvas dragging
 document.addEventListener('keydown', function(event) {
     if (event.key === 'k') {
-        toggleCanvasDragging();
-        handleCanvasDragging();
+        moveblankcanvas();
     }
 });
-function moveblankcanvas(){
-    toggleCanvasDragging();
-    handleCanvasDragging();
-}
+
 // Event handler for mouse down event
 canvas?.on('mouse:down', function (options) {
     if (!drawingMode) return;
@@ -695,6 +702,7 @@ document.addEventListener('keydown', function(event) {
 function copy() {
     canvas.getActiveObject().clone(function(cloned) {
         _clipboard = cloned;
+        console.log("Copied object:", _clipboard); // Logs the copied object
     });
 }
 
@@ -890,7 +898,7 @@ function updateMousePosition(o) {
     var pointer = canvas.getPointer(o.e);
     lastMousePosition.x = pointer.x;
     lastMousePosition.y = pointer.y;
-   // console.log("Mouse Position:", lastMousePosition.y, lastMousePosition.x);
+    //console.log("Mouse Position:", lastMousePosition.y, lastMousePosition.x);
     isCreatingArrow = true; 
 }
 
@@ -1478,11 +1486,14 @@ function addAnnotationRow(number) {
     // Initialize Select2 on the newly created <select> elements
     $('#material' + number).select2({
         placeholder: "Select materials",
-        width: '100%' // Ensures full width in the cell
+        tags: true,  // Allows users to add new tags
+        width: '100%'
     });
+    
     
     $('#color' + number).select2({
         placeholder: "Select colors",
+        tags: true, 
         width: '100%' // Ensures full width in the cell
     });
 
