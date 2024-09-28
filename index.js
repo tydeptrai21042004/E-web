@@ -1929,9 +1929,8 @@ function appendDataToWorksheet(workbook) {
     let maxCanvasWidth = 200;
 
     screens.forEach((screen, screenIndex) => {
-        const screenNumber = `No. ${screenIndex + 1}`;
         const canvases = screen.querySelectorAll('#imageCanvas');
-    
+
         canvases.forEach((canvasElement) => {
             let fabricCanvas = canvasElement.fabricCanvas;
             if (!fabricCanvas) {
@@ -1941,7 +1940,7 @@ function appendDataToWorksheet(workbook) {
 
             const rows = screen.querySelectorAll('.annotationTable tbody tr');
             const startRow = currentRow;
-    
+
             rows.forEach(row => {
                 try {
                     const numberInput = row.querySelector('input[type="number"]');
@@ -1959,7 +1958,24 @@ function appendDataToWorksheet(workbook) {
                     const selectedColors = Array.from(colorSelect.selectedOptions).map(option => option.value).join('/');
                     const description = descriptionInput.value;
 
-                    const rowData = [number, selectedMaterials, selectedColors, screenNumber, '', description];
+                    // Determine new "No." value based on existing values in column D
+                    let reMaskValue = `No. ${number}`;
+                    let existingRows = worksheet.getColumn(4).values; // Get values of column D (Re mask)
+
+                    // Count how many times the reMaskValue appears in column D
+                    let count = 0;
+                    existingRows.forEach((cellValue, index) => {
+                        if (cellValue === reMaskValue) {
+                            count++;
+                        }
+                    });
+
+                    // Update reMaskValue if there are existing entries
+                    if (count > 0) {
+                        reMaskValue = `No. ${parseInt(number) + screenIndex + 1}`; // Increment the number based on existing entries
+                    }
+
+                    const rowData = [number, selectedMaterials, selectedColors, reMaskValue, '', description];
                     console.log("Adding row to Annotations sheet:", rowData);
                     const excelRow = worksheet.getRow(currentRow);
                     excelRow.values = rowData;
