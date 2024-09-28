@@ -1645,10 +1645,10 @@ function addNumberLabel(number, obj) {
         const zoomLevel = canvas.getZoom();
         return 24 / zoomLevel; // Adjust the base font size (24) as needed
     }
-
+    const zoomLevel = canvas.getZoom();
     // Calculate the position relative to the object
-    var labelLeft = obj.left - 60;
-    var labelTop = obj.top - 20; // Adjust as needed
+    var labelLeft = obj.left - (60/zoomLevel);
+    var labelTop = obj.top - (20/zoomLevel); // Adjust as needed
 
     var text = new fabric.Text(String(number), {
         left: labelLeft,
@@ -1672,8 +1672,8 @@ function addNumberLabel(number, obj) {
         if (!obj || !obj.textLabel) return; // Ensure textLabel exists
 
         // Calculate the new position for the label
-        var labelLeft = obj.left - 60;
-        var labelTop = obj.top - 20;
+        var labelLeft = obj.left - (60/zoomLevel);
+        var labelTop = obj.top -  (20/zoomLevel);
 
         // Update the label's position and font size
         obj.textLabel.set({
